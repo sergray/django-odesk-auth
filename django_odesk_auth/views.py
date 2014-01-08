@@ -1,9 +1,11 @@
 #coding: utf-8
 
+from urlparse import urlparse, urlunparse, parse_qs
+from urllib import urlencode
+
 from django.core.urlresolvers import reverse
 from django import http
 from django.contrib.auth import authenticate, login
-from django.contrib.sites.models import Site
 
 from . import utils
 from . import O_REQUEST_TOKEN, O_ACCESS_TOKEN
@@ -21,15 +23,18 @@ def oauth_login(request):
     # (OAuth.get_request_token() magically sets ``request_token[_secret]``
     # attributes on OAuth instance under c.auth, so we don't have to do that)
 
-    site = Site.objects.get_current()
+    redir_uri = request.build_absolute_uri(reverse('odesk_oauth_login_callback'))
+    next = request.GET.get('next', '/')
+    scheme, netloc, path, params, query, fragment = urlparse(redir_uri)
+    query_dict = parse_qs(query)
+    query_dict['next'] = next
+    redir_uri = urlunparse([scheme, netloc, path, params,
+        urlencode(query_dict, True), fragment
+    ])
 
-    return http.HttpResponseRedirect(odesk_client.auth.get_authorize_url(
-        'http://{domain}{url}?next={redirect}'.format(
-            domain=site.domain,
-            url=reverse('odesk_oauth_login_callback'),
-            redirect=request.GET.get('next'),
-        )
-    ))
+    return http.HttpResponseRedirect(
+        odesk_client.auth.get_authorize_url(redir_uri)
+    )
 
 
 def oauth_login_callback(request):
