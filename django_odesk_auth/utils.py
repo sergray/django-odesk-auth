@@ -8,28 +8,45 @@ from odesk import exceptions as odesk_exceptions
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+from . import O_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
 
 
+class DefaultClient(Client):
+    "OAuth-enabled python-odesk Client with API tokens from Django settings"
+    def __init__(self, access_token=None):
+        try:
+            key = settings.ODESK_OAUTH_KEY
+            secret = settings.ODESK_OAUTH_SECRET
+        except AttributeError:
+            raise ImproperlyConfigured(
+                "ODESK_OAUTH_KEY and/or ODESK_OAUTH_SECRET settings missing")
+        super(DefaultClient, self).__init__(key, secret)
+        if access_token:    
+            self.oauth_access_token = access_token[0]
+            self.oauth_access_token_secret = access_token[1]
+
+
 def get_client(access_token=None):
-    """Returns OAuth-enabled python-odesk Client instance."""
+    """Returns DefaultClient"""
+    return DefaultClient(access_token)
+
+
+def get_access_token_from(session=None):
     try:
-        key = settings.ODESK_OAUTH_KEY
-        secret = settings.ODESK_OAUTH_SECRET
-    except AttributeError:
-        raise ImproperlyConfigured(
-            "ODESK_OAUTH_KEY and/or ODESK_OAUTH_SECRET settings missing")
+        return session.get(O_ACCESS_TOKEN, None)
+    except (AttributeError):
+        return None
 
-    odesk_client = Client(key, secret)
 
-    if access_token:
-        (
-            odesk_client.oauth_access_token,
-            odesk_client.oauth_access_token_secret,
-        ) = access_token
-
-    return odesk_client
+def get_client_from(request=None):
+    try:
+        access_token = get_access_token_from(session=request.session)
+    except (AttributeError):
+        access_token = None
+    client = get_client(access_token)
+    return client
 
 
 def set_user_info(user, odesk_user):
