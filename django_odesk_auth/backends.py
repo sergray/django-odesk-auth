@@ -25,7 +25,7 @@ for newly created users."""
 class ODeskOAuthBackend(object):
     """Backend for Django auth system."""
 
-    def authenticate(self, access_token=None):
+    def authenticate(self, access_token=None, UserClass=User):
         """Verifies that given OAuth ``access_token`` is valid by making
         a request to oDesk API to get current user's information.
 
@@ -73,11 +73,11 @@ class ODeskOAuthBackend(object):
             username_suffix=ODESK_USERNAME_SUFFIX)
 
         try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
+            user = UserClass.objects.get(username=username)
+        except UserClass.DoesNotExist:
             if CREATE_UNKNOWN_USER:
                 logger.info("Creating new user: %s", username)
-                user = User.objects.create(username=username)
+                user = UserClass.objects.create(username=username)
                 user = utils.set_user_info(user, auth_user)
             else:
                 logger.info(
